@@ -2,6 +2,7 @@ import exifread
 import os
 import argparse
 
+# Video metadata
 from hachoir_core.error import HachoirError
 from hachoir_core.cmd_line import unicodeFilename
 from hachoir_parser import createParser
@@ -45,7 +46,7 @@ def getImageDateTime(f):
 
     return dt
 
-def getVideoDateTime(filename):    
+def getVideoDateTime(filename): 
     dt = ""
     filename, realname = unicodeFilename(filename), filename
     parser = createParser(filename, realname)
@@ -83,11 +84,14 @@ def readConfig():
     configFile.close()
 
 def fetchFiles(src):
+    printVerb("Fetching files in %s" % src)
     files = os.listdir(src)
     if(len(files) > 0):
         images = [x for x in files if os.path.isfile(x) and x.split('.')[1].upper() in img]
         videos = [x for x in files if os.path.isfile(x) and x.split('.')[1].upper() in vid]
-        other  = [x for x in files if os.path.isfile(x) and not x.split('.')[1].upper() in vid and not x.split('.')[1].upper() in img]
+        # other  = [x for x in files if os.path.isfile(x) and not x.split('.')[1].upper() in vid and not x.split('.')[1].upper() in img]
+
+    printVerb("Found %d files. %d images, %d videos" % ((len(images) + len(videos)), len(images), len(videos)))
 
     return (images, videos)
 
@@ -97,19 +101,26 @@ def parseDest(dest):
         os.makedirs(dest)
 
 def writeAllFiles(images, videos):
-    printVerb("Writing %d images" % len(images))
+    printVerb("Writing %d images..." % len(images))
+
     for img in images:
-        writeImage(img)
+        printVerb("Fetching metadata for %s" % img)
+        writeFile(img, True)
 
     printVerb("Done writing images.")
     printVerb("Writing %d videos" % len(videos))
     for vid in videos:
-        writeVideo(vid)
+        printVerb("Fetching metadata for %s" % img)
+        writeFile(vid, False)
 
     printVerb("Done writing %d files." % (len(images) + len(videos)))
 
-def writeImage(f):
-    dt = getImageDateTime(f)
+def writeFile(f, isImg):
+    if isImg:
+        dt = getImageDateTime(f)
+    else:
+        dt = getVideoDateTime(f)
+
     di = dest + "/" + dt
     newFile = di + "/" + f
     if not os.path.exists(di):
@@ -120,32 +131,25 @@ def writeImage(f):
     fileExist(f, di, newFile)
     if os.path.isfile(newFile):
         newFile = fileExist(f, di, newFile)
-    printVerb("Destination file exists, renaming to " + newFile.split('/')[-1])
+        printVerb("Destination file exists, renaming to " + newFile.split('/')[-1])
     write(f, newFile)
 
-def writeVideo(f):
-    dt = getVideoDateTime(f)
-    di = dest + "/" + dt
-    newFile = di + "/" + f
-    if not os.path.exists(di):
-        printVerb("Creating directory " + di)
-        os.makedirs(di)
-        
-    printVerb("Writing file " + f)
-    fileExist(f, di, newFile)
-    if os.path.isfile(newFile):
-        newFile = fileExist(f, di, newFile)
-    printVerb("Destination file exists, renaming to " + newFile.split('/')[-1])
-    write(f, newFile)    
-
-
 def fileExist(f, di, nf):
+    nf1 = nf
+    f1 = f
+    di1 = di
+
     count = 0
-    while os.path.isfile(nf):
+    while os.path.isfile(nf1):
+        nf1 = nf
+        f1 = f
+        di1 = di
+
         tmp = f.split('.')
-        f = tmp[0] + "_" + str(count) + "." + tmp[1]
-        nf = di + "/" + f
-    return nf
+        f1 = tmp[0] + "_" + str(count) + "." + tmp[1]
+        nf1 = di1 + "/" + f1
+        count = count + 1
+    return nf1
 
 def write(f, newFile):
     with open(f, 'rb') as f1:
@@ -168,20 +172,7 @@ def main():
 
     writeAllFiles(images, videos)
 
-#    writeFile(images[0])
-
-#    print images
-#    print videos
-
-    
-    '''
-    print "img", img
-    print "vid", vid
-    print "dest", dest
-    print "images", images
-    print "videos", videos
-    print "other", other
-    '''
+    printVerb("Finished writing files. Exiting.")
 
 if __name__ == "__main__": main()
 
