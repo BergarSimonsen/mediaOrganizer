@@ -2,6 +2,9 @@ import exifread
 import os
 import argparse
 
+from os import listdir
+from os.path import isfile, join
+
 # Video metadata
 from hachoir_core.error import HachoirError
 from hachoir_core.cmd_line import unicodeFilename
@@ -16,12 +19,21 @@ verbose = False
 dest = ""
 img = []
 vid = []
+src = ""
+
+# Default config file params
+defaultDest   = 'destination="%s"' % os.getcwd()
+defaultImages = 'imageTypes="JPG,JPEG"'
+defaultVideos = 'videoTypes="AVI,MKV,MOV,MP4,MPEG,MPG,WMV"'
 
 def printVerb(msg):
-    if verbose:
-        print msg
+    if verbose: print msg
+
+def absFile(f):
+    return src[0] + "/" + f
 
 def getSource(args):
+    global src
     src = args['source']
     if src[0] == '.':
         return os.getcwd()
@@ -33,7 +45,8 @@ def determineVerbose(args):
     verbose = args['v']
 
 def getImageDateTime(f):
-    f = open(f, 'rb')
+    f1 = absFile(f)
+    f = open(f1, 'rb')
     tags = exifread.process_file(f)
 
     try:
@@ -48,7 +61,7 @@ def getImageDateTime(f):
 
 def getVideoDateTime(filename): 
     dt = ""
-    filename, realname = unicodeFilename(filename), filename
+    filename, realname = unicodeFilename(absFile(filename)), absFile(filename)
     parser = createParser(filename, realname)
     try:
         metadata = extractMetadata(parser)
@@ -67,28 +80,51 @@ def getVideoDateTime(filename):
 
     return dt
 
-def readConfig():
-    configFile = open('config.txt', 'r')
+def readConfig(count = 1):
+    printVerb("Reading config.")
+    try:
+        configFile = open('config.txt', 'r')
 
-    global dest
-    global img
-    global vid
+        global dest
+        global img
+        global vid
 
-    tmp = configFile.readline()
-    dest = tmp.split('\"')[1]
-    tmp = configFile.readline()
-    img = tmp.split('\"')[1].split(',')
-    tmp = configFile.readline()
-    vid = tmp.split('\"')[1].split(',')
-    
-    configFile.close()
+        tmp = configFile.readline()
+        dest = tmp.split('\"')[1]
+        tmp = configFile.readline()
+        img = tmp.split('\"')[1].split(',')
+        tmp = configFile.readline()
+        vid = tmp.split('\"')[1].split(',')
+        
+        configFile.close()
+    except:
+        if count == 1:
+            print "Config file could not be found. Creating default config file."
+            makeConfig()
+            readConfig(2)
+        else:
+            print "Error reading config file. Exiting."
+            exit(1)
+        
+
+def makeConfig():
+    try:
+        conf = open("config.txt", "w")
+        conf.write(defaultDest + "\n")
+        conf.write(defaultImages + "\n")
+        conf.write(defaultVideos + "\n")
+        conf.close()
+        print 'Config file %s created successfully' % ('"' + os.getcwd() + '/config.txt"')
+    except:
+        print "Could not create config file. Exiting."
+        exit(1)
 
 def fetchFiles(src):
     printVerb("Fetching files in %s" % src)
-    files = os.listdir(src)
+    files = [f for f in listdir(src[0]) if isfile(join(src[0],f))]
     if(len(files) > 0):
-        images = [x for x in files if os.path.isfile(x) and x.split('.')[1].upper() in img]
-        videos = [x for x in files if os.path.isfile(x) and x.split('.')[1].upper() in vid]
+        images = [x for x in files if x.split('.')[1].upper() in img]
+        videos = [x for x in files if x.split('.')[1].upper() in vid]
         # other  = [x for x in files if os.path.isfile(x) and not x.split('.')[1].upper() in vid and not x.split('.')[1].upper() in img]
 
     printVerb("Found %d files. %d images, %d videos" % ((len(images) + len(videos)), len(images), len(videos)))
@@ -152,7 +188,8 @@ def fileExist(f, di, nf):
     return nf1
 
 def write(f, newFile):
-    with open(f, 'rb') as f1:
+    fFull = absFile(f)
+    with open(fFull, 'rb') as f1:
         data = f1.read()
     with open(newFile, 'wb') as f2:
         f2.write(data)
@@ -166,7 +203,7 @@ def main():
 
     determineVerbose(args)
     readConfig()
-    src = getSource(args)
+    getSource(args)
     parseDest(dest)
     images, videos = fetchFiles(src)
 
@@ -175,14 +212,6 @@ def main():
     printVerb("Finished writing files. Exiting.")
 
 if __name__ == "__main__": main()
-
-
-
-
-
-
-
-
 
 #    print makePrintable(line, charset)
 
@@ -197,57 +226,6 @@ if __name__ == "__main__": main()
 #print "images: ", images
 #print "videos: ", videos
 #print "other: ", other
-
-
-'''
-
-
-
-if len(argv) != 2:
-    print >>stderr, "usage: %s filename" % argv[0]
-    exit(1)
-filename = argv[1]
-
-filename, realname = unicodeFilename(filename), filename
-parser = createParser(filename, realname)
-if not parser:
-    print >>stderr, "Unable to parse file"
-    exit(1)
-try:
-    metadata = extractMetadata(parser)
-except HachoirError, err:
-    print "Metadata extraction error: %s" % unicode(err)
-    metadata = None
-if not metadata:
-    print "Unable to extract metadata"
-    exit(1)
-
-text = metadata.exportPlaintext()
-charset = getTerminalCharset()
-for line in text:
-    print makePrintable(line, charset)
-'''
-#inlyfiles = [f for f in listdir(path) if isfile(join(path,f)]
-
-# Open image file for reading (binary mode)
-#f = open('vid.mov', 'rb')
-
-# Return Exif tags
-#tags = exifread.process_file(f)
-
-# testing, print all tags
-#for tag in tags.keys():
-#    if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
-#        print "Key: %s, value %s" % (tag, tags[tag])
-
-#for tag in tags.keys():
-#    print "Key %s, Value %s" % (tag, tags[tag])
-
-#date_taken = tags["Image DateTime"]
-#print date_taken
-#x = str(date_taken)
-#dt = x[0:4]
-#print dt
 
 
 
