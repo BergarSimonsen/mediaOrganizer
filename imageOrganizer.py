@@ -22,7 +22,7 @@ vid = []
 src = ""
 
 # Default config file params
-defaultDest   = 'destination="%s"' % os.getcwd()
+defaultDest   = 'destination="%s/images"' % os.getcwd()
 defaultImages = 'imageTypes="JPG,JPEG"'
 defaultVideos = 'videoTypes="AVI,MKV,MOV,MP4,MPEG,MPG,WMV"'
 
@@ -54,8 +54,9 @@ def getImageDateTime(f):
         x = str(date_taken)
         dt = x[0:4]
     except:
-        print "Unable to extract metadata"
-        exit(1)
+        print "Unable to extract metadata for file %s" % f1
+        dt = "misc"
+#        exit(1)
 
     return dt
 
@@ -69,8 +70,8 @@ def getVideoDateTime(filename):
         print "Metadata extraction error: %s" % unicode(err)
         metadata = None
         if not metadata:
-            print "Unable to extract metadata"
-            exit(1)
+            print "Unable to extract metadata for file %s" % filename
+#            exit(1)
 
     text = metadata.exportPlaintext()
     charset = getTerminalCharset()
