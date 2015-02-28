@@ -15,11 +15,13 @@ from hachoir_core.i18n import getTerminalCharset
 from hachoir_metadata import video
 
 # Global variables
-verbose = False
-dest = ""
-img = []
-vid = []
-src = ""
+verbose       = False
+separateVideo = False
+duplicates    = True
+dest          = ""
+img           = []
+vid           = []
+src           = ""
 
 # Default config file params
 defaultDest   = 'destination="%s/images"' % os.getcwd()
@@ -43,6 +45,14 @@ def getSource(args):
 def determineVerbose(args):
     global verbose
     verbose = args['v']
+
+def separateVideo(args):
+    global separateVideo
+    separateVideo = args['s']
+
+def determineDuplicates(args):
+    global duplicates
+    duplicates = not args['d']
 
 def getImageDateTime(f):
     f1 = absFile(f)
@@ -159,14 +169,17 @@ def writeFile(f, isImg):
         dt = getVideoDateTime(f)
 
     di = dest + "/" + dt
+
+    if not isImg and separateVideo:
+        di = di + "/video"
+
     newFile = di + "/" + f
     if not os.path.exists(di):
         printVerb("Creating directory " + di)
         os.makedirs(di)
         
     printVerb("Writing file " + f)
-    fileExist(f, di, newFile)
-    if os.path.isfile(newFile):
+    if os.path.isfile(newFile) and duplicates:
         newFile = fileExist(f, di, newFile)
         printVerb("Destination file exists, renaming to " + newFile.split('/')[-1])
     write(f, newFile)
@@ -198,14 +211,19 @@ def write(f, newFile):
 
 def main():
     parser = argparse.ArgumentParser(description='Source folder')
-    parser.add_argument('source', metavar='N', nargs='+', help='Source folder')
-    parser.add_argument('-v', action='store_true', required = False)
+    parser.add_argument('source', metavar='Source Folder', nargs='+', help='Source folder')
+    parser.add_argument('-v', action='store_true', required = False, help='Verbose')
+    parser.add_argument('-s', action='store_true', required = False, help='Separate folder for videos')
+    parser.add_argument('-d', action='store_true', required = False, help='Do not keep duplicates. Default is to keep duplicates.')
     args = vars(parser.parse_args())
 
     determineVerbose(args)
+    separateVideo(args)
+    determineDuplicates(args)
     readConfig()
     getSource(args)
     parseDest(dest)
+
     images, videos = fetchFiles(src)
 
     writeAllFiles(images, videos)
